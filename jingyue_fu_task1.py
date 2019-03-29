@@ -32,8 +32,9 @@ g = GraphFrame(vertices, edges)
 
 # LPA find Community
 result = g.labelPropagation(maxIter=5)
-sortedResult = result.select('label', 'id').rdd.map(lambda x: (x[0], [x[1]])).reduceByKey(lambda x, y: x+y).map(lambda x: sorted(x[1])).collect()
-sortedResult = sorted(sortedResult, key=lambda x: len(x), reverse=False)
+sortedResult = result.select('label', 'id').rdd.map(lambda x: (x[0], [str(x[1])])).reduceByKey(lambda x, y: x+y).map(lambda x: sorted(x[1], key=str.lower)).collect()
+sortedResult = sorted(
+    sorted(sortedResult, key = lambda x: x[0].lower), key=lambda x: len(x), reverse=False)
 
 # Sort and Print
 fileOfOutput = open(OUTPUT, 'w')
@@ -53,7 +54,7 @@ for i in range(1, len(sortedResult)):
 fileOfOutput.write(outputStr)
 
 timeEnd = time.time()
-# print "Duration: %f sec" % (timeEnd - timeStart)
+print "Duration: %f sec" % (timeEnd - timeStart)
 
 # bin/spark-submit \
 # --conf "spark.driver.extraJavaOptions=-Dlog4j.configuration=file:conf/log4j.xml" \
