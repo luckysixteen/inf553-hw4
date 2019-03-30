@@ -52,6 +52,7 @@ for i in range(1, len(sortedResult)):
         outputStr += "', "
     outputStr = outputStr[:-2]
 fileOfOutput.write(outputStr)
+fileOfOutput.close()
 
 timeEnd = time.time()
 print "Duration: %f sec" % (timeEnd - timeStart)
