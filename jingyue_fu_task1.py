@@ -32,9 +32,9 @@ g = GraphFrame(vertices, edges)
 
 # LPA find Community
 result = g.labelPropagation(maxIter=5)
-sortedResult = result.select('label', 'id').rdd.map(lambda x: (x[0], [str(x[1])])).reduceByKey(lambda x, y: x+y).map(lambda x: sorted(x[1], key=str.lower)).collect()
-sortedResult = sorted(
-    sorted(sortedResult, key = lambda x: x[0].lower), key=lambda x: len(x), reverse=False)
+sortedResult = result.select('label', 'id').rdd.map(lambda x: (x[0], [str(x[1])])).reduceByKey(lambda x, y: x+y).map(lambda x: sorted(x[1])).collect()
+# print sortedResult
+sortedResult = sorted(sorted(sortedResult, key = lambda x: x[0]), key=lambda x: len(x))
 
 # Sort and Print
 fileOfOutput = open(OUTPUT, 'w')
