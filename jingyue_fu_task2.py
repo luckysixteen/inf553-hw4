@@ -111,6 +111,7 @@ def CalculateModularity(community):
             m += modulDict[(i, j)]
     return m
 
+
 def dfs_connected(i, j, traverse):
     traverse.add(i)
     children = graphDict[i]
@@ -123,18 +124,65 @@ def dfs_connected(i, j, traverse):
     return False
 
 
-communityDict = dict()
+def dfs(node, community):
+    community.add(node)
+    children = graphDict[node]
+    for child in children:
+        if child not in community:
+            dfs(child, community)
 
+
+def getCommunity():
+    vertices = set(nodeList)
+    communities = list()
+    while len(vertices) != 0:
+        head = vertices.pop()
+        community = set()
+        dfs(head, community)
+        communities.append(list(community))
+        vertices = vertices - community
+    return communities
+
+bestModu = (modularity, getCommunity())
+
+communityDict = dict()
 for edge in betweennessList:
     i = edge[0][0]
     j = edge[0][1]
     graphDict[i].remove(j)
     graphDict[j].remove(i)
-    modul = 0
+    modu = 0
     if dfs_connected(i, j, set([])):
         continue
-    
+    communities = getCommunity()
+    for community in communities:
+        modu += CalculateModularity(community)
+    if bestModu[0] < modu:
+        bestModu = (modu, communities)
 
+# Sort and Print
+sortedCommunity = list()
+for c in bestModu[1]:
+    c = sorted(c, key=lambda x: str.lower(x))
+    sortedCommunity.append(c)
+sortedResult = sorted(sorted(sortedCommunity, key = lambda x: str.lower(x[0])), key=lambda x: len(x))
+
+fileOfOutput = open(OUTPUT2, 'w')
+outputStr = ""
+for usr in sortedResult[0]:
+    outputStr += "'"
+    outputStr += usr
+    outputStr += "', "
+outputStr = outputStr[:-2]
+for i in range(1, len(sortedResult)):
+    outputStr += '\n'
+    for usr in sortedResult[i]:
+        outputStr += "'"
+        outputStr += usr
+        outputStr += "', "
+    outputStr = outputStr[:-2]
+fileOfOutput.write(outputStr)
+fileOfOutput.close()
 
 timeEnd = time.time()
 print ("Duration: %f sec" % (timeEnd - timeStart))
