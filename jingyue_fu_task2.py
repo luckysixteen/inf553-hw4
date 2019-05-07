@@ -14,12 +14,14 @@ OUTPUT2 = sys.argv[4]
 sc = SparkContext('local[*]', 'CD_GF')
 rawData = sc.textFile(INPUT_CSV, None, False)
 header = rawData.first()
-rawData = rawData.filter(lambda x: x != header).map(lambda x: x.split(','))
+rawData = rawData.filter(lambda x: x != header).map(lambda x: x.decode().split(','))
 rawData = rawData.map(lambda x: (x[0], [x[1]])).reduceByKey(lambda x, y: x + y).sortByKey()
 allPairs = rawData.cartesian(rawData).filter(lambda x: x[0][0] != x[1][0])
 edgesData = allPairs.map(lambda x: ((x[0][0],[x[1][0]]),set(x[0][1]).intersection(set(x[1][1])))).filter(lambda x: len(x[1]) >= THRESHOLD ).map(lambda x: x[0])
 verticesData = edgesData.flatMap(lambda x: [x[0], x[1][0]]).distinct()
-graphDict = edgesData.reduceByKey(lambda x,y: x+y).collectAsMap()
+# graphDict: Dictionary  {node: [neighbor1, neighbor2]}
+graphDict = edgesData.map(lambda x: (x[0], set(x[1]))).reduceByKey(lambda x,y: x | y).collectAsMap()
+
 
 # Task 2: Calculate Betweenness
 def GirvanNewman(root):
@@ -57,18 +59,18 @@ def GirvanNewman(root):
                 if parent not in nodeCreditDict:
                     nodeCreditDict[parent] = 1
                 nodeCreditDict[parent] += between
-                edge = tuple(sorted([node, parent]))
+                edge = tuple(sorted([node, parent], key=lambda x: str.lower(x)))
                 yield(edge, between / 2)
 
 
-betweenness = verticesData.flatMap(lambda x: GirvanNewman(x)).reduceByKey(add).collect()
-betweenness = sorted(sorted(betweenness, key=lambda x: x[0][0]), key=lambda x: x[1], reverse = True)
-# print betweenness
+betweenness = verticesData.flatMap(lambda x: GirvanNewman(x)).reduceByKey(add)
+betweennessList = betweenness.collect()
+betweennessList = sorted(sorted(betweennessList, key=lambda x: str.lower(x[0][0])), key=lambda x: x[1], reverse = True)
 
 betweennessText = open(OUTPUT1, 'w')
-if betweenness:
+if betweennessList:
     outputStr = ""
-    for b in betweenness:
+    for b in betweennessList:
         outputStr += "('"
         outputStr += b[0][0]
         outputStr += "', '"
@@ -82,9 +84,60 @@ betweennessText.close()
 
 
 # Task 3: Community Detection
+edgeNum = betweenness.count()
+nodeNum = verticesData.count()
+nodeList = verticesData.collect()
+modularity = 0
+numDict = dict()
+for node in graphDict:
+    numDict[node] = len(graphDict[node])
+
+modulDict = dict()
+for nodei in nodeList:
+    for nodej in nodeList:
+        if nodej in graphDict[nodei]:
+            A = 1
+        else:
+            A = 0
+        q = (A - 0.5 * numDict[nodei] * numDict[nodej] / edgeNum) / (2 * edgeNum)
+        modulDict[(nodei, nodej)] = q
+        modularity += q
+
+
+def CalculateModularity(community):
+    m = 0
+    for i in community:
+        for j in community:
+            m += modulDict[(i, j)]
+    return m
+
+def dfs_connected(i, j, traverse):
+    traverse.add(i)
+    children = graphDict[i]
+    for child in children:
+        if child == j:
+            return True
+        if child not in traverse:
+            if dfs_connected(child, j, traverse):
+                return True
+    return False
+
+
+communityDict = dict()
+
+for edge in betweennessList:
+    i = edge[0][0]
+    j = edge[0][1]
+    graphDict[i].remove(j)
+    graphDict[j].remove(i)
+    modul = 0
+    if dfs_connected(i, j, set([])):
+        continue
+    
+
 
 timeEnd = time.time()
-print "Duration: %f sec" % (timeEnd - timeStart)
+print ("Duration: %f sec" % (timeEnd - timeStart))
 
 # bin/spark-submit \
 # --conf "spark.driver.extraJavaOptions=-Dlog4j.configuration=file:conf/log4j.xml" \

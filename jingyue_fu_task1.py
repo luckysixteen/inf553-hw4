@@ -19,7 +19,7 @@ sc = SparkContext('local[*]', 'CD_GF')
 sqlContext = sql.SQLContext(sc)
 rawData = sc.textFile(INPUT_CSV, None, False)
 header = rawData.first()
-rawData = rawData.filter(lambda x: x != header).map(lambda x: x.split(','))
+rawData = rawData.filter(lambda x: x != header).map(lambda x: x.decode().split(','))
 rawData = rawData.map(lambda x: (x[0], [x[1]])).reduceByKey(lambda x, y: x+y).sortByKey()
 allPairs = rawData.cartesian(rawData).filter(lambda x: x[0][0] != x[1][0])
 edgesData = allPairs.map(lambda x: ((x[0][0],x[1][0]),set(x[0][1]).intersection(set(x[1][1])))).filter(lambda x: len(x[1]) >= THRESHOLD ).map(lambda x: x[0])
@@ -32,9 +32,9 @@ g = GraphFrame(vertices, edges)
 
 # LPA find Community
 result = g.labelPropagation(maxIter=5)
-sortedResult = result.select('label', 'id').rdd.map(lambda x: (x[0], [str(x[1])])).reduceByKey(lambda x, y: x+y).map(lambda x: sorted(x[1])).collect()
+sortedResult = result.select('label', 'id').rdd.map(lambda x: (x[0], [str(x[1])])).reduceByKey(lambda x, y: x+y).map(lambda x: sorted(x[1], key=lambda x: str.lower(x))).collect()
 # print sortedResult
-sortedResult = sorted(sorted(sortedResult, key = lambda x: x[0]), key=lambda x: len(x))
+sortedResult = sorted(sorted(sortedResult, key = lambda x: str.lower(x[0])), key=lambda x: len(x))
 
 # Sort and Print
 fileOfOutput = open(OUTPUT, 'w')
@@ -55,7 +55,7 @@ fileOfOutput.write(outputStr)
 fileOfOutput.close()
 
 timeEnd = time.time()
-print "Duration: %f sec" % (timeEnd - timeStart)
+print ("Duration: %f sec" % (timeEnd - timeStart))
 
 # bin/spark-submit \
 # --conf "spark.driver.extraJavaOptions=-Dlog4j.configuration=file:conf/log4j.xml" \
